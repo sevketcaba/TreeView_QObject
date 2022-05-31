@@ -156,14 +156,14 @@ void TreeModel::updateParentCheckState(const QModelIndex &parentIdx)
         return;
     }
 
-    auto oldState = getCheckState(parentIdx);
+    auto oldParentState = getCheckState(parentIdx);
     auto parentState = calculateParentState(parentIdx);
-    if(parentState == oldState)
+    if(parentState == oldParentState)
     {
         return;
     }
 
-    /// update the parent next cycle
+    /// update the parent in the next cycle
     QMetaObject::invokeMethod(this,
                               "setData",
                               Qt::QueuedConnection,
@@ -228,55 +228,60 @@ bool TreeModel::setData(const QModelIndex &idx, const QVariant &value, int role)
 }
 
 
-QModelIndex TreeModel::index(int row, int column, const QModelIndex &parent) const
+QModelIndex TreeModel::index(int row, int column, const QModelIndex &parentIdx) const
 {
-    auto *parentItem = objectFromIndex(parent);
+    // boundary check
+    if (row < 0 || column < 0 || row >= rowCount(parentIdx) || column >= columnCount(parentIdx))
+          return QModelIndex();
 
-    if(row < 0) {
-        qCritical() << "[index] requested a negative row";
-        return QModelIndex();
-    }
-    if(row >= parentItem->children().size())
-    {
-        qCritical() << "[index] requested a row that's beyond parent's children" << row << column << parent;
-        return QModelIndex();
-    }
+    auto *parentObj = objectFromIndex(parentIdx);
+    Q_ASSERT(parentObj);
 
-    return createIndex(row, column, parentItem->children().at(row));
+    // boundary check
+    if(row >= parentObj->children().size())
+        return QModelIndex();
+
+    auto *obj = parentObj->children().at(row);
+    Q_ASSERT(obj);
+
+    return createIndex(row, column, obj);
 }
 
-QModelIndex TreeModel::parent(const QModelIndex &child) const
+QModelIndex TreeModel::parent(const QModelIndex &idx) const
 {
-    if(!child.isValid())
-    {
-        qCritical() << "[parent] requested a parent index of an invalid index";
-        return QModelIndex();
-    }
-
-    auto *tItem = objectFromIndex(child);
-    if(tItem == nullptr)
-    {
-        qCritical() << "[parent] requested a parent index of a null item of an index";
-        return QModelIndex();
-    }
-    auto *tParentItem = tItem->parent();
-    if(tParentItem == nullptr)
-    {
-        qCritical() << "[parent] requested a parent index of an index of which item has no parent";
-        return QModelIndex();
-    }
-    auto *tGrandParent = tParentItem->parent();
-    if(tGrandParent == nullptr) // this means this is a child of root
+    if(!idx.isValid())
     {
         return QModelIndex();
     }
 
-    return createIndex( static_cast<int>(tGrandParent->children().indexOf(tParentItem)), 0, tParentItem);
+    auto *obj = objectFromIndex(idx);
+    Q_ASSERT(obj);
+
+    auto *parentObj = obj->parent();
+    Q_ASSERT(parentObj);
+
+    auto *grandParentObj = parentObj->parent();
+    if(grandParentObj == nullptr)
+        return QModelIndex();
+
+    int row = grandParentObj->children().indexOf(parentObj);
+    if(row == -1)
+        return QModelIndex();
+
+    return createIndex( row, 0, parentObj);
 }
 
-int TreeModel::rowCount(const QModelIndex &parent) const
+int TreeModel::rowCount(const QModelIndex &idx) const
 {
-    auto *item = objectFromIndex(parent);
+    if(!idx.isValid())
+    {
+        return mRoot->children().size();
+    }
+    if(idx.column() != 0)
+    {
+        return 0;
+    }
+    auto *item = objectFromIndex(idx);
     if(item == nullptr)
         return 0;
 
@@ -289,19 +294,23 @@ int TreeModel::columnCount(const QModelIndex &parent) const
     return 3;
 }
 
-Qt::ItemFlags TreeModel::flags(const QModelIndex &index) const
+Qt::ItemFlags TreeModel::flags(const QModelIndex &idx) const
 {
-    return QAbstractItemModel::flags(index) | Qt::ItemIsUserCheckable | Qt::ItemIsTristate;
+    if(!idx.isValid() || idx.column() != 0)
+        return QAbstractItemModel::flags(idx);
+
+    return QAbstractItemModel::flags(idx) | Qt::ItemIsUserCheckable | Qt::ItemIsTristate;
 }
 
 
-QObject *TreeModel::objectFromIndex(const QModelIndex &index) const
+QObject *TreeModel::objectFromIndex(const QModelIndex &idx) const
 {
-    if(!index.isValid())
+    if(!idx.isValid())
     {
         return mRoot;
     }
-    return reinterpret_cast<QObject*>(index.internalPointer());
+
+    return reinterpret_cast<QObject*>(idx.internalPointer());
 }
 
 QModelIndex TreeModel::indexFromObject(QObject *item) const
@@ -319,62 +328,9 @@ QModelIndex TreeModel::indexFromObject(QObject *item) const
     {
         return QModelIndex();
     }
+    // column is always zero
+    Q_ASSERT(pmi->column() == 0);
     return index(pmi->row(), pmi->column(), pmi->parent());
-}
-
-void TreeModel::addObject(QObject *item, QObject *parent)
-{
-    // if parent is null, attach the item to the root object
-    auto *tParent = parent == nullptr
-            ? mRoot
-            : parent;
-
-    // get the index of the parent
-    QModelIndex parentIndex = indexFromObject(tParent);
-
-    addObjectAt(item, parentIndex);
-}
-
-void TreeModel::addObjectAt(QObject *item, const QModelIndex &parent)
-{
-    // get the next row; item does not know its parent yet
-    int row = static_cast<int>(rowCount(parent));
-
-    beginInsertRows(parent, row, row);
-
-    auto *parentObj = reinterpret_cast<QObject*>(parent.internalPointer());
-    if(parentObj == nullptr)
-    {
-        parentObj = mRoot;
-    }
-    item->setParent(parentObj);
-
-    // add to the map
-    mObjectIndexMap[item] = new QPersistentModelIndex(index(row, 0, parent));
-
-    updateParentCheckState(parent);
-
-    endInsertRows();
-}
-
-void TreeModel::removeObject(QObject *item)
-{
-    if(item == nullptr)
-    {
-        return;
-    }
-    auto idx = indexFromObject(item);
-    removeObjectImpl(item, idx);
-}
-
-void TreeModel::removeObjectAt(const QModelIndex &index)
-{
-    if(!index.isValid())
-    {
-        return;
-    }
-    auto *item = objectFromIndex(index);
-    removeObjectImpl(item, index);
 }
 
 void TreeModel::setObject(QObject *root)
@@ -393,13 +349,75 @@ void TreeModel::setObject(QObject *root)
     endResetModel();
 }
 
+void TreeModel::addObject(QObject *item, QObject *parent)
+{
+    // if parent is null, attach the item to the root object
+    auto *tParent = parent == nullptr
+            ? mRoot
+            : parent;
+
+    // get the index of the parent
+    QModelIndex parentIndex = indexFromObject(tParent);
+
+    addObjectAt(item, parentIndex);
+}
+
+void TreeModel::addObjectAt(QObject *item, const QModelIndex &parent)
+{
+    // always add to ZERO column
+    QModelIndex parentIdx = parent.isValid()
+            ? parent.siblingAtColumn(0)
+            : parent; // null modelindex
+
+    // get the parent object
+    auto *parentObj = objectFromIndex(parent);
+
+    // get the next row
+    int row = static_cast<int>(rowCount(parentIdx));
+    beginInsertRows(parentIdx, row, row);
+
+    item->setParent(parentObj);
+
+    // add to the map, column has to be ZERO
+    mObjectIndexMap[item] = new QPersistentModelIndex(index(row, 0, parentIdx));
+
+    if(parent.isValid())
+        updateParentCheckState(parentIdx);
+
+    endInsertRows();
+}
+
+void TreeModel::removeObject(QObject *item)
+{
+    Q_ASSERT(item);
+    auto idx = indexFromObject(item);
+    removeObjectImpl(item, idx);
+}
+
+void TreeModel::removeObjectAt(const QModelIndex &idx)
+{
+    if(!idx.isValid())
+    {
+        return;
+    }
+    auto *item = objectFromIndex(idx);
+    removeObjectImpl(item, idx);
+}
+
 void TreeModel::removeObjectImpl(QObject *item, const QModelIndex &idx)
 {
+    Q_ASSERT(item);
+    if(!idx.isValid())
+        return;
+
+    QModelIndex idxAtZero = idx.siblingAtColumn(0);
+    auto parentIdx = idxAtZero.parent();
+
     connect(item, &QObject::destroyed, this, [=](){
         endRemoveRows();
+        emit itemRemovalDone();
     });
 
-    auto parentIdx = idx.parent();
     beginRemoveRows(parentIdx, idx.row(), idx.row());
 
     // remove from check state map
@@ -409,8 +427,9 @@ void TreeModel::removeObjectImpl(QObject *item, const QModelIndex &idx)
     auto *pmi = mObjectIndexMap.take(item);
     delete pmi;
 
-    // delete item
+    // remove from parent item
     item->setParent(nullptr);
+    // delete item
     item->deleteLater();
 
     updateParentCheckState(parentIdx);

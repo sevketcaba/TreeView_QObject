@@ -50,6 +50,11 @@ TreeView::~TreeView()
 {
 }
 
+const TreeModel *TreeView::model() const
+{
+    return mTreeModel;
+}
+
 void TreeView::setModel(TreeModel *model)
 {
     mTreeModel = model;

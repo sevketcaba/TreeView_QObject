@@ -1,5 +1,6 @@
 set(COMMON_DIR ${COMMON_DIR} PARENT_SCOPE)
 set(LIBS ${LIBS} PARENT_SCOPE)
+set(LIBS_NONGUI ${LIBS_NONGUI} PARENT_SCOPE)
 
 set(LIBRARY_NAME TreeView_Model)
 set(SOURCE_FILES
@@ -19,6 +20,10 @@ list(APPEND
     LIBS
     ${LIBRARY_NAME}
 )
+list(APPEND
+    LIBS_NONGUI
+    ${LIBRARY_NAME}
+)
 
 target_include_directories(
     ${LIBRARY_NAME}
@@ -34,3 +39,4 @@ target_link_libraries(
 )
 
 set(LIBS ${LIBS} PARENT_SCOPE)
+set(LIBS_NONGUI ${LIBS_NONGUI} PARENT_SCOPE)

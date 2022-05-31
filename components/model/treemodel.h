@@ -19,16 +19,18 @@ public:
     Q_INVOKABLE QModelIndex parent(const QModelIndex &child) const override;
     Q_INVOKABLE int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     Q_INVOKABLE int columnCount(const QModelIndex &parent = QModelIndex()) const override;
-    Q_INVOKABLE Qt::ItemFlags flags(const QModelIndex &index) const override;
+    Q_INVOKABLE Qt::ItemFlags flags(const QModelIndex &idx) const override;
 
     Q_INVOKABLE void addObject(QObject *item, QObject *parent = nullptr);
     Q_INVOKABLE void addObjectAt(QObject *item, const QModelIndex &parent);
     Q_INVOKABLE void removeObject(QObject *item);
-    Q_INVOKABLE void removeObjectAt(const QModelIndex &index);
+    Q_INVOKABLE void removeObjectAt(const QModelIndex &idx);
 
     Q_INVOKABLE void setObject(QObject *root);
+signals:
+    void itemRemovalDone();
 protected:
-    QObject *objectFromIndex(const QModelIndex &index) const;
+    QObject *objectFromIndex(const QModelIndex &idx) const;
     QModelIndex indexFromObject(QObject *item) const;
 
 private:
