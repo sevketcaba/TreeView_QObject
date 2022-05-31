@@ -18,8 +18,22 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_BINDIR})
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+option(ENABLE_TESTS "Enable Tests" ON)
+
+set(LIBNAMES_QT Widgets)
+
+
+
+set(LIBS_QT "")
+foreach(libname ${LIBNAMES_QT})
+    list(APPEND LIBS_QT Qt${QT_VERSION_MAJOR}::${libname})
+endforeach()
+if(ENABLE_TESTS)
+    list(APPEND LIBNAMES_QT Test)
+endif(ENABLE_TESTS)
+
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS ${LIBNAMES_QT})
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS ${LIBNAMES_QT})
 
 if(WIN32)
 option(TVO_ENABLE_BUILD_SHAREDLIB "Shared Libraries" ON)
@@ -75,7 +89,8 @@ target_link_libraries(
     ${PROJECT_NAME}
     PRIVATE
     ${LIBS}
-    Qt${QT_VERSION_MAJOR}::Widgets
+    ${LIBS_QT}
+#    Qt${QT_VERSION_MAJOR}::Widgets
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -89,3 +104,12 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(${PROJECT_NAME})
 endif()
+
+# Testing
+if(ENABLE_TESTS)
+
+    enable_testing()
+
+    add_subdirectory(test)
+
+endif(ENABLE_TESTS)

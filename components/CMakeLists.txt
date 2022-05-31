@@ -1,6 +1,8 @@
 set(LIBS ${LIBS} PARENT_SCOPE)
+set(LIBS_NONGUI ${LIBS_NONGUI} PARENT_SCOPE)
 add_definitions(-DTREEVIEW_QOBJECT_LIB)
 add_subdirectory(model)
 add_subdirectory(gui)
 remove_definitions(-DTREEVIEW_QOBJECT_LIB)
 set(LIBS ${LIBS} PARENT_SCOPE)
+set(LIBS_NONGUI ${LIBS_NONGUI} PARENT_SCOPE)

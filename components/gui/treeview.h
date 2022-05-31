@@ -14,6 +14,8 @@ public:
     explicit TreeView(QWidget *parent = nullptr);
     virtual ~TreeView() override;
 
+    const TreeModel *model() const;
+
     Q_INVOKABLE void setModel(TreeModel *model);
 private:
     QTreeView *mTreeView;

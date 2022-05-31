@@ -1,0 +1,4 @@
+set(TEST_SOURCE_FILES ${TEST_SOURCE_FILES} PARENT_SCOPE)
+add_subdirectory(model)
+add_subdirectory(gui)
+set(TEST_SOURCE_FILES ${TEST_SOURCE_FILES} PARENT_SCOPE)
